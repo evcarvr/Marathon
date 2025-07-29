@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Marathon Walking Route — Author & Follower Modes</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="controls">
+    <button id="clearBtn" onclick="clearRoute()">Clear Route</button>
+    <button id="saveBtn" onclick="savePath()">Save Path</button>
+    <button id="loadBtn" onclick="loadSavedPath()">Load Saved Path</button>
+    <button id="shareBtn" onclick="generateShareLink()">Generate Shareable Link</button>
+    <button id="startNavBtn" disabled onclick="startNavigation()">Start Navigation</button>
+    <input type="text" id="shareLink" readonly onclick="this.select()" placeholder="Shareable link will appear here">
+  </div>
+
+  <div id="progressBarWrapper" style="display:none">
+    <div id="progressText">0% • 0 m left</div>
+    <div id="progressOuter">
+      <div id="progressInner"></div>
+    </div>
+    <div class="muted" id="etaText"></div>
+  </div>
+
+  <div id="map"></div>
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDgUtO-QtZfRHq1mARfb3U-G_FNCM_ySN8&libraries=geometry&callback=initMap" async defer></script>
+
+  <script src="script.js"></script>
+</body>
+</html>
