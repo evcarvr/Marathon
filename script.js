@@ -617,7 +617,7 @@ let map, directionsService, directionsRenderer, gpsMarker;
           waypointMarkers[i].marker.note = notes[i];
         }
       });
-
+updateRoute();
       document.getElementById("startNavBtn").disabled = coords.length < 2;
     }
 
