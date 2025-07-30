@@ -23,12 +23,22 @@
 >
   </div>
 <!-- Route Alert Popup -->
-<div class="popup-overlay" id="routeAlertPopup" style="display: none;">
-  <div class="popup">
-    <button class="btn-close-popup" onclick="hideRouteAlert()" aria-label="Close popup">&times;</button>
-    <h2>Alert!</h2>
-    <p>You are not following the route.</p>
-    <button class="btn-open-popup" onclick="hideRouteAlert()">Got it</button>
+<div class="popup-overlay" id="routeAlertPopup" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center;">
+  <div class="popup" style="background: white; width: 90%; max-width: 400px; border-radius: 12px; padding: 30px 25px; text-align: center; position: relative;">
+    <button class="btn-close-popup" onclick="hideRouteAlert()" aria-label="Close popup" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+    <h2 style="margin-bottom: 20px; color: #333;">Alert!</h2>
+    <p style="color: #555; font-size: 16px; margin-bottom: 30px;">You are not following the route.</p>
+    <button class="btn-open-popup" onclick="hideRouteAlert()" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">Got it</button>
+  </div>
+</div>
+
+<!-- Marathon Completion Popup -->
+<div class="popup-overlay" id="completionPopup" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 99999; justify-content: center; align-items: center;">
+  <div class="popup" style="background: white; width: 90%; max-width: 400px; border-radius: 12px; padding: 30px 25px; text-align: center; position: relative;">
+    <button class="btn-close-popup" onclick="hideCompletionAlert()" aria-label="Close popup" style="position: absolute; top: 15px; right: 15px; background: transparent; border: none; font-size: 24px; cursor: pointer;">&times;</button>
+    <h2 style="margin-bottom: 20px; color: #333;">🎉 Marathon Complete! 🎉</h2>
+    <p style="color: #555; font-size: 16px; margin-bottom: 30px;">Congratulations! You have successfully completed the marathon route!</p>
+    <button class="btn-open-popup" onclick="hideCompletionAlert()" style="background: #28a745; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">Awesome!</button>
   </div>
 </div>
 
