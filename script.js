@@ -12,22 +12,55 @@ let map, directionsService, directionsRenderer, gpsMarker;
     let lastProgressTime = null;
     let lastProgressMeters = 0;
     let infoWindow = null;
-
+let lastDeviationTime = 0;
     // Detect mode from URL param: "author" (default) or "follower"
     const urlParams = new URLSearchParams(window.location.search);
     const mode = urlParams.get("mode") || "author";
     const isAuthor = mode === "author";
 
     // On load, toggle UI buttons based on mode
-    window.onload = () => {
-      if (!isAuthor) {
-        // Disable editing controls for follower
-        document.getElementById("clearBtn").style.display = "none";
-        document.getElementById("saveBtn").style.display = "none";
-        document.getElementById("loadBtn").style.display = "none";
-        document.getElementById("shareBtn").style.display = "none";
-      }
-    };
+//     window.onload = () => {
+//       if (!isAuthor) {
+//         // Disable editing controls for follower
+// const controlsTop = document.getElementById("controls-top");
+//     controlsTop.style.display = "none";
+
+//     // Adjust the map margin-top so it fills the space at top
+//     const mapElem = document.getElementById("map");
+//     mapElem.style.marginTop = "0";
+//         document.getElementById("clearBtn").style.display = "none";
+//         document.getElementById("saveBtn").style.display = "none";
+//         document.getElementById("loadBtn").style.display = "none";
+//         document.getElementById("shareBtn").style.display = "none";
+//         document.getElementById("shareLink").style.display = "none";
+
+//       }
+//     };
+
+
+window.onload = () => {
+  const controlsTop = document.getElementById("controls-top");
+  const mapElem = document.getElementById("map");
+
+  if (!isAuthor) {
+    // Follower mode: hide top controls and remove top margin on map
+    controlsTop.style.display = "none";
+    mapElem.style.marginTop = "0";
+
+    // Optional: redundant if controlsTop hidden, but no harm
+    document.getElementById("clearBtn").style.display = "none";
+    document.getElementById("saveBtn").style.display = "none";
+    document.getElementById("loadBtn").style.display = "none";
+    document.getElementById("shareBtn").style.display = "none";
+    document.getElementById("shareLink").style.display = "none";
+  } else {
+    // Author mode: show top controls and set margin-top to reserve space
+    controlsTop.style.display = "flex";
+    mapElem.style.marginTop = "60px";
+  }
+};
+
+
 
     function createMarkerIcon(label, fillColor) {
       const svg = `
@@ -119,13 +152,13 @@ let map, directionsService, directionsRenderer, gpsMarker;
           if (infoWindow) infoWindow.close();
 
           const inputId = `noteInput-${index}`;
-          const content = `
-            <div style="max-width:220px;">
-              <label style="font-weight:bold;">Waypoint Note:</label><br>
-              <textarea id="${inputId}" rows="3" style="width:100%;">${marker.note}</textarea><br/>
-              <button onclick="saveNote(${index}, '${inputId}')">Save</button>
-            </div>
-          `;
+         const content = `
+  <div style="max-width: 260px; padding: 10px; background: #f8f9fa; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-family: 'Segoe UI', sans-serif; font-size: 18px;">
+    <label style="font-weight:600; color: #333;">Waypoint Note:</label><br>
+    <textarea id="${inputId}" rows="4" style="width: 100%; padding: 8px; font-size: 16px; border-radius: 6px; border: 1px solid #ccc;"></textarea><br/><br/>
+    <button style="background: #007bff; color: white; border: none; padding: 10px 16px; font-size: 14px; border-radius: 6px; cursor: pointer;" onclick="saveNote(${index}, '${inputId}')">Save</button>
+  </div>
+`;
 
           infoWindow = new google.maps.InfoWindow({
             content: content
@@ -153,7 +186,25 @@ let map, directionsService, directionsRenderer, gpsMarker;
 
           if (!marker.note) return; // no popup if no note
 
-          const content = `<div style="max-width:220px;">${escapeHtml(marker.note).replace(/\n/g, "<br>")}</div>`;
+const content = `
+  <div style="
+    max-width: 300px;
+    padding: 16px;
+    background: linear-gradient(135deg, #e0f7fa, #b2ebf2);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    font-family: 'Segoe UI', sans-serif;
+    font-size: 18px;
+    font-weight: bold;
+    color: #004d40;
+    text-align: center;
+    line-height: 1.5;
+    word-wrap: break-word;
+  ">
+    ${escapeHtml(marker.note).replace(/\n/g, "<br>")}
+  </div>
+`;
+
 
           infoWindow = new google.maps.InfoWindow({
             content: content
@@ -176,12 +227,20 @@ let map, directionsService, directionsRenderer, gpsMarker;
     }
 
     // For loading waypoints (both author & follower), bypass author check
-    function addWaypointDirect(latlng) {
-      waypoints.push(latlng);
-      const marker = createMarker(latlng, waypoints.length - 1);
-      waypointMarkers.push({ marker, crossed: false });
-      updateRoute();
-    }
+    // function addWaypointDirect(latlng) {
+    //   waypoints.push(latlng);
+    //   const marker = createMarker(latlng, waypoints.length - 1);
+    //   waypointMarkers.push({ marker, crossed: false });
+    //   updateRoute();
+    // }
+function addWaypointDirect(latlng, suppressUpdate = false) {
+  waypoints.push(latlng);
+  const marker = createMarker(latlng, waypoints.length - 1);
+  waypointMarkers.push({ marker, crossed: false });
+  if (!suppressUpdate) {
+    updateRoute();
+  }
+}
 
     function deleteWaypoint(index) {
       if (!isAuthor) return;
@@ -217,6 +276,19 @@ let map, directionsService, directionsRenderer, gpsMarker;
       }
       calculateRoute();
     }
+let alertShown = false;
+
+function showRouteAlert() {
+  if (!alertShown) {
+    document.getElementById("routeAlertPopup").style.display = "flex";
+    alertShown = true;
+  }
+}
+
+function hideRouteAlert() {
+  document.getElementById("routeAlertPopup").style.display = "none";
+  alertShown = false;
+}
 
     function calculateRoute() {
       const origin = waypoints[0];
@@ -422,6 +494,16 @@ let map, directionsService, directionsRenderer, gpsMarker;
   }
 });
 
+// --- Deviation Alert Logic ---
+const distanceFromPath = best.dist; // already calculated
+
+  const now = Date.now();
+  const offRoute = distanceFromPath > 30; // meters
+
+  if (offRoute && now - lastDeviationTime > 6000) {
+    showRouteAlert();
+    lastDeviationTime = now;
+  }
     }
 
     function projectPointOnSegment(p, a, b) {
@@ -535,7 +617,7 @@ let map, directionsService, directionsRenderer, gpsMarker;
         alert("Add at least 2 waypoints to save.");
         return;
       }
-        updateRoute();  // <-- ADD THIS
+        //updateRoute();  // <-- ADD THIS
 
       const coords = waypoints.map(wp => [wp.lat(), wp.lng()]);
       const notes = waypointMarkers.map(obj => obj.marker.note || "");
@@ -551,13 +633,14 @@ let map, directionsService, directionsRenderer, gpsMarker;
         alert("No saved path found.");
         return;
       }
-        updateRoute();  // <-- ADD THIS
 
       try {
         const obj = JSON.parse(data);
         if (!obj.coords) throw new Error("Invalid saved data");
         clearRoute();
-        obj.coords.forEach(c => addWaypointDirect(new google.maps.LatLng(c[0], c[1])));
+            obj.coords.forEach(c => addWaypointDirect(new google.maps.LatLng(c[0], c[1]), true));
+
+        // obj.coords.forEach(c => addWaypointDirect(new google.maps.LatLng(c[0], c[1])));
         if (obj.notes && obj.notes.length === waypointMarkers.length) {
           for (let i = 0; i < obj.notes.length; i++) {
             waypointMarkers[i].marker.note = obj.notes[i];
@@ -567,6 +650,8 @@ let map, directionsService, directionsRenderer, gpsMarker;
       } catch (e) {
         alert("Failed to load saved path: " + e.message);
       }
+              updateRoute();  // <-- ADD THIS
+
     }
 
     // Generate a shareable URL with coordinates and notes
@@ -612,7 +697,7 @@ let map, directionsService, directionsRenderer, gpsMarker;
       }
 
       coords.forEach((c, i) => {
-        addWaypointDirect(c);
+        addWaypointDirect(c,true);
         if (notes[i]) {
           waypointMarkers[i].marker.note = notes[i];
         }
@@ -628,3 +713,4 @@ updateRoute();  // <-- add here as well
         return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[m];
       });
     }
+    
