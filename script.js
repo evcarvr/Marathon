@@ -11,8 +11,12 @@ let map, directionsService, directionsRenderer, gpsMarker;
     let lastProgressIndex = 0;
     let lastProgressTime = null;
     let lastProgressMeters = 0;
+    let reachedWaypointCount = 0;
+    let marathonCompleted = false;
     let infoWindow = null;
 let lastDeviationTime = 0;
+let positionCheckInterval = null; // For frequent position updates during navigation
+let lastKnownPosition = null; // Store last known GPS position
     // Detect mode from URL param: "author" (default) or "follower"
     const urlParams = new URLSearchParams(window.location.search);
     const mode = urlParams.get("mode") || "author";
@@ -130,7 +134,11 @@ window.onload = () => {
         navigator.geolocation.watchPosition(
           onPositionUpdate,
           err => console.error("Geolocation error", err),
-          { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
+          { 
+            enableHighAccuracy: true, 
+            maximumAge: 1000,  // Accept cached position up to 1 second old
+            timeout: 5000      // Reduce timeout to 5 seconds for faster updates
+          }
         );
       }
 
@@ -279,15 +287,92 @@ function addWaypointDirect(latlng, suppressUpdate = false) {
 let alertShown = false;
 
 function showRouteAlert() {
-  if (!alertShown) {
-    document.getElementById("routeAlertPopup").style.display = "flex";
+  console.log("showRouteAlert called - DISPLAYING AFTER 6 SECOND DELAY");
+  const popup = document.getElementById("routeAlertPopup");
+  console.log("Popup element found:", !!popup);
+  
+  if (popup) {
+    // Force immediate display with all possible style overrides
+    popup.style.cssText = `
+      display: flex !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      z-index: 99999 !important;
+      position: fixed !important;
+      top: 50% !important;
+      left: 50% !important;
+      transform: translate(-50%, -50%) !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: rgba(0,0,0,0.5) !important;
+      justify-content: center !important;
+      align-items: center !important;
+    `;
+    
     alertShown = true;
+    console.log("Route alert popup DISPLAYED after 6-second delay!");
+    
+    // Multiple forced reflows
+    popup.offsetHeight;
+    popup.offsetWidth;
+    popup.getBoundingClientRect();
+    popup.scrollTop;
+    
+    // Auto-hide after 5 seconds
+    setTimeout(() => {
+      if (popup && popup.style.display !== "none") {
+        hideRouteAlert();
+      }
+    }, 5000);
+  } else {
+    console.error("Popup element not found!");
   }
 }
 
 function hideRouteAlert() {
-  document.getElementById("routeAlertPopup").style.display = "none";
+  const popup = document.getElementById("routeAlertPopup");
+  if (popup) {
+    popup.style.display = "none";
+    popup.style.visibility = "hidden";
+    popup.style.opacity = "0";
+  }
   alertShown = false;
+  console.log("Route alert hidden");
+}
+
+function showCompletionAlert() {
+  console.log("Showing marathon completion popup!");
+  const popup = document.getElementById("completionPopup");
+  console.log("Completion popup element:", popup);
+  
+  if (popup && !marathonCompleted) {
+    // Force immediate display
+    popup.style.display = "flex";
+    popup.style.visibility = "visible";
+    popup.style.opacity = "1";
+    popup.style.zIndex = "99999";
+    popup.style.position = "fixed";
+    popup.style.top = "50%";
+    popup.style.left = "50%";
+    popup.style.transform = "translate(-50%, -50%)";
+    
+    marathonCompleted = true;
+    console.log("Completion popup display set immediately!");
+    
+    // Force reflows
+    popup.offsetHeight;
+    popup.getBoundingClientRect();
+  }
+}
+
+function hideCompletionAlert() {
+  const popup = document.getElementById("completionPopup");
+  if (popup) {
+    popup.style.display = "none";
+    popup.style.visibility = "hidden";
+    popup.style.opacity = "0";
+  }
+  console.log("Completion alert hidden");
 }
 
     function calculateRoute() {
@@ -370,6 +455,8 @@ function hideRouteAlert() {
 
     function onPositionUpdate(pos) {
       const currentPos = new google.maps.LatLng(pos.coords.latitude, pos.coords.longitude);
+      lastKnownPosition = currentPos; // Store for frequent checking
+      console.log("GPS position updated:", currentPos.lat().toFixed(6), currentPos.lng().toFixed(6));
 
       if (!gpsMarker) {
         gpsMarker = new google.maps.Marker({
@@ -398,6 +485,7 @@ function hideRouteAlert() {
       if (!navigationStarted) {
         checkStartButton(currentPos);
       } else {
+        console.log("Navigation started, calling updateSmoothProgress");
         updateSmoothProgress(currentPos);
       }
     }
@@ -419,6 +507,19 @@ function hideRouteAlert() {
       lastProgressIndex = 0;
       lastProgressTime = Date.now();
       lastProgressMeters = 0;
+      reachedWaypointCount = 0;
+      marathonCompleted = false;
+      
+      // Reset deviation tracking
+      lastDeviationTime = 0;
+      alertShown = false;
+      
+      // Reset all waypoints to not crossed
+      waypointMarkers.forEach((obj, i) => {
+        obj.crossed = false;
+        obj.marker.setIcon(createMarkerIcon(i + 1, "#FF0000")); // Reset to red
+      });
+      
       doneRoute.setPath([]);
       doneRouteBase.setPath([]);
       upcomingRoute.setPath(fullPath);
@@ -426,84 +527,169 @@ function hideRouteAlert() {
       document.getElementById("startNavBtn").disabled = true;
       showProgressBar();
       updateProgressUI(0, totalDist);
+      
+      // Start frequent position checking for faster off-route detection
+      console.log("Starting frequent position check every 2 seconds for fast deviation detection");
+      if (positionCheckInterval) {
+        clearInterval(positionCheckInterval);
+      }
+      positionCheckInterval = setInterval(() => {
+        if (navigationStarted && lastKnownPosition) {
+          console.log("Frequent check: Processing position for deviation detection");
+          updateSmoothProgress(lastKnownPosition);
+        }
+      }, 2000); // Check every 2 seconds
     }
 
     function updateSmoothProgress(currentPos) {
       if (!fullPath.length) return;
 
-      const searchStart = Math.max(lastProgressIndex - 5, 0);
-      let best = { dist: Infinity, segIndex: -1, projPoint: null, projRatio: 0, cumMetersAtProj: 0 };
+      console.log("updateSmoothProgress called, navigationStarted:", navigationStarted);
 
-      for (let i = searchStart; i < fullPath.length - 1; i++) {
-        const a = fullPath[i];
-        const b = fullPath[i + 1];
-
-        const proj = projectPointOnSegment(currentPos, a, b);
-        if (!proj) continue;
-
-        const d = google.maps.geometry.spherical.computeDistanceBetween(currentPos, proj.point);
-        if (d < best.dist) {
-          best.dist = d;
-          best.segIndex = i;
-          best.projPoint = proj.point;
-          best.projRatio = proj.t;
-          const distToA = cumDist[i];
-          const segLen = google.maps.geometry.spherical.computeDistanceBetween(a, b);
-          best.cumMetersAtProj = distToA + segLen * proj.t;
+      // Check which waypoints have been reached in order
+      const waypointRadius = 30; // 30 meters radius to consider waypoint "reached"
+      
+      // Only check the next waypoint in sequence
+      if (reachedWaypointCount < waypoints.length) {
+        const nextWaypoint = waypoints[reachedWaypointCount];
+        const distToWaypoint = google.maps.geometry.spherical.computeDistanceBetween(currentPos, nextWaypoint);
+        
+        if (distToWaypoint <= waypointRadius) {
+          // Mark this waypoint as reached
+          reachedWaypointCount++;
+          
+          // Mark waypoint as crossed visually
+          if (!waypointMarkers[reachedWaypointCount - 1].crossed) {
+            waypointMarkers[reachedWaypointCount - 1].crossed = true;
+            waypointMarkers[reachedWaypointCount - 1].marker.setIcon(createMarkerIcon(reachedWaypointCount, "#00c853")); // turn green
+          }
+        }
+      }
+      
+      // Calculate progress based on waypoints reached, not route projection
+      let progressMeters = 0;
+      if (reachedWaypointCount > 0) {
+        // Find the route distance to the last reached waypoint
+        const lastReachedWaypoint = waypoints[reachedWaypointCount - 1];
+        const waypointIndex = fullPath.findIndex(p => 
+          google.maps.geometry.spherical.computeDistanceBetween(p, lastReachedWaypoint) < 10
+        );
+        if (waypointIndex !== -1) {
+          progressMeters = cumDist[waypointIndex];
+        }
+      }
+      
+      // If all waypoints reached, calculate based on proximity to end
+      if (reachedWaypointCount === waypoints.length) {
+        const endPoint = fullPath[fullPath.length - 1];
+        const distToEnd = google.maps.geometry.spherical.computeDistanceBetween(currentPos, endPoint);
+        if (distToEnd <= 30) { // Within 30m of end
+          progressMeters = totalDist; // 100% complete
+          
+          // Show completion popup when 100% is reached
+          if (!marathonCompleted) {
+            console.log("Marathon completed! Showing completion popup.");
+            showCompletionAlert();
+          }
         }
       }
 
-      if (best.segIndex === -1) return;
+      // Update visual route display
+      if (progressMeters > 0) {
+        const progressIndex = cumDist.findIndex(d => d >= progressMeters);
+        if (progressIndex !== -1) {
+          const donePts = fullPath.slice(0, progressIndex + 1);
+          const futurePts = fullPath.slice(progressIndex);
+          
+          doneRoute.setPath(donePts);
+          doneRouteBase.setPath(donePts);
+          upcomingRoute.setPath(futurePts);
+          upcomingRouteBase.setPath(futurePts);
+          
+          lastProgressIndex = progressIndex;
+        }
+      } else {
+        // No progress yet - show all route as upcoming
+        doneRoute.setPath([]);
+        doneRouteBase.setPath([]);
+        upcomingRoute.setPath(fullPath);
+        upcomingRouteBase.setPath(fullPath);
+      }
 
-      const donePts = fullPath.slice(0, best.segIndex + 1).concat([best.projPoint]);
-      const futurePts = [best.projPoint].concat(fullPath.slice(best.segIndex + 1));
-
-      doneRoute.setPath(donePts);
-      doneRouteBase.setPath(donePts);
-      upcomingRoute.setPath(futurePts);
-      upcomingRouteBase.setPath(futurePts);
-
-      lastProgressIndex = Math.max(lastProgressIndex, best.segIndex);
-
-      const doneMeters = best.cumMetersAtProj;
+      const doneMeters = progressMeters;
       const remain = Math.max(0, totalDist - doneMeters);
       const pct = totalDist > 0 ? (doneMeters / totalDist) * 100 : 0;
       updateProgressUI(pct, remain);
 
-      // waypoints.forEach((wp, i) => {
-      //   if (!waypointMarkers[i].crossed) {
-      //     const wpIndex = fullPath.findIndex(p => google.maps.geometry.spherical.computeDistanceBetween(p, wp) < 5);
-      //     if (wpIndex !== -1 && wpIndex <= best.segIndex) {
-      //       waypointMarkers[i].crossed = true;
-      //       waypointMarkers[i].marker.setIcon(createMarkerIcon(i + 1, "#00c853")); // turn green
-      //     }
-      //   }
-      // });
-      waypoints.forEach((wp, i) => {
-  if (!waypointMarkers[i].crossed) {
-    const wpIndex = fullPath.findIndex(p => google.maps.geometry.spherical.computeDistanceBetween(p, wp) < 5);
+      // --- Deviation Alert Logic ---
+      console.log("Starting deviation detection, fullPath.length:", fullPath.length);
+      
+      // Calculate distance from current position to the route path
+      let distanceFromPath = Infinity;
+      
+      // Find the closest point on the route to current position
+      for (let i = 0; i < fullPath.length - 1; i++) {
+        const a = fullPath[i];
+        const b = fullPath[i + 1];
+        
+        const proj = projectPointOnSegment(currentPos, a, b);
+        if (proj) {
+          const d = google.maps.geometry.spherical.computeDistanceBetween(currentPos, proj.point);
+          if (d < distanceFromPath) {
+            distanceFromPath = d;
+          }
+        }
+      }
 
-    // Also check against the projected point if this is the final waypoint
-    const isLast = i === waypoints.length - 1;
-    const nearProjected = google.maps.geometry.spherical.computeDistanceBetween(best.projPoint, wp) < 5;
+      // Debug: Always log distance for immediate feedback
+      console.log("Current distance from route:", distanceFromPath.toFixed(1), "meters");
+      
+      const now = Date.now();
+      const offRoute = distanceFromPath > 30; // 30 meters as requested
+      
+      console.log("Off route status:", offRoute, "| Timer state:", lastDeviationTime);
 
-    if ((wpIndex !== -1 && wpIndex <= best.segIndex) || (isLast && nearProjected)) {
-      waypointMarkers[i].crossed = true;
-      waypointMarkers[i].marker.setIcon(createMarkerIcon(i + 1, "#00c853")); // turn green
-    }
-  }
-});
-
-// --- Deviation Alert Logic ---
-const distanceFromPath = best.dist; // already calculated
-
-  const now = Date.now();
-  const offRoute = distanceFromPath > 30; // meters
-
-  if (offRoute && now - lastDeviationTime > 6000) {
-    showRouteAlert();
-    lastDeviationTime = now;
-  }
+      if (offRoute) {
+        // If this is the first time we're off route, start the 6-second timer
+        if (lastDeviationTime === 0) {
+          lastDeviationTime = now;
+          console.log("🚨 FIRST TIME OFF ROUTE - Started 6-second deviation timer at:", new Date(now).toLocaleTimeString());
+          console.log("Distance from route:", distanceFromPath.toFixed(1), "meters");
+        }
+        // Show alert AND logs after being off route for 6 seconds (including first time)
+        // Only check if we haven't shown recently (lastDeviationTime is not in future)
+        else if (lastDeviationTime <= now && (now - lastDeviationTime >= 6000)) {
+          console.log("⏰ 6+ SECONDS OFF ROUTE!");
+          console.log("Distance from route:", distanceFromPath.toFixed(1), "meters");
+          console.log("User is off route for 6+ seconds!");
+          console.log("Showing route alert after 6 second delay!");
+          
+          // Reset alertShown to ensure popup can show
+          alertShown = false;
+          showRouteAlert();
+          
+          // Prevent spam by setting to a future time (30 seconds from now)
+          lastDeviationTime = now + 5000;
+          console.log("Next alert possible at:", new Date(lastDeviationTime).toLocaleTimeString());
+        }
+        // If we're in spam prevention period, just wait
+        else if (lastDeviationTime > now) {
+          const waitTime = Math.round((lastDeviationTime - now) / 1000);
+          console.log("⏳ Spam prevention active, next alert in", waitTime, "seconds");
+        }
+        else {
+          const elapsed = Math.round((now - lastDeviationTime) / 1000);
+          console.log("⏱️ Off route for", elapsed, "seconds, waiting for 6 seconds total");
+        }
+      } else {
+        // Reset the timer if we're back on route
+        if (lastDeviationTime !== 0) {
+          console.log("✅ Back on route, resetting timer and hiding alert");
+          hideRouteAlert(); // Automatically hide when back on route
+        }
+        lastDeviationTime = 0;
+        alertShown = false; // Reset alert state when back on route
+      }
     }
 
     function projectPointOnSegment(p, a, b) {
@@ -580,6 +766,19 @@ const distanceFromPath = best.dist; // already calculated
 
     function resetNavigation() {
       navigationStarted = false;
+      reachedWaypointCount = 0;
+      lastProgressIndex = 0;
+      lastProgressTime = null;
+      lastProgressMeters = 0;
+      marathonCompleted = false;
+      
+      // Clear frequent position checking
+      if (positionCheckInterval) {
+        clearInterval(positionCheckInterval);
+        positionCheckInterval = null;
+        console.log("Stopped frequent position checking");
+      }
+      
       document.getElementById("startNavBtn").disabled = waypoints.length < 2;
       hideProgressBar();
       doneRoute.setPath([]);
@@ -713,4 +912,49 @@ updateRoute();  // <-- add here as well
         return {'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'}[m];
       });
     }
+
+    // Test function for 6-second delay popup testing
+function testPopups() {
+  console.log("Testing popup with 6-second delay simulation...");
+  
+  // Force reset states
+  alertShown = false;
+  marathonCompleted = false;
+  
+  // Simulate 6-second delay before showing popup
+  console.log("Simulating 6-second delay before popup...");
+  setTimeout(() => {
+    console.log("6 seconds passed - showing route alert popup now!");
+    showRouteAlert();
+    
+    // Test completion popup after route alert
+    setTimeout(() => {
+      console.log("Hiding route alert and showing completion...");
+      hideRouteAlert();
+      
+      setTimeout(() => {
+        console.log("Showing completion popup!");
+        showCompletionAlert();
+      }, 1000);
+    }, 3000);
+  }, 6000);
+}
+
+// Individual test functions for the HTML buttons
+function testRouteAlert() {
+  console.log("Testing route alert popup immediately...");
+  alertShown = false; // Reset state
+  showRouteAlert();
+}
+
+function testCompletionPopup() {
+  console.log("Testing completion popup immediately...");
+  marathonCompleted = false; // Reset state
+  showCompletionAlert();
+}
+
+// Make test functions available globally
+window.testPopups = testPopups;
+window.testRouteAlert = testRouteAlert;
+window.testCompletionPopup = testCompletionPopup;
     
