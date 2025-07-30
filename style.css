@@ -1,53 +1,245 @@
-#map {
-  height: 90vh;
-  width: 100%;
+/* Reset and base styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
 }
 
-#controls {
-  margin: 10px;
+body, html {
+  height: 100%;
+  background: #f4f4f4;
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+#map {
+  flex-grow: 1;
+  height: 100%; /* or a fixed height if you want */
+}
+/* Top controls container */
+#controls-top {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  padding: 10px;
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+    justify-content: space-around;
+
   align-items: center;
+  gap: 10px;
+  z-index: 9999;
 }
 
-#progressBarWrapper {
-  position: fixed;
-  top: 20px;
-  right: 20px;
-  width: 260px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 6px;
-  padding: 6px 10px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, .15);
-  font-family: sans-serif;
-  z-index: 2;
+/* Buttons inside top controls */
+#controls-top button {
+  padding: 10px 14px;
+  border: none;
+  border-radius: 25px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+   /*background: #2980b9; */
   color: white;
-  font-weight: bold;
 }
 
-#progressOuter {
+#clearBtn {
+  background: #e74c3c;
+  color: white;
+}
+#clearBtn:hover {
+  background: #c0392b;
+}
+
+#saveBtn {
+  background: #2980b9;
+  color: white;
+}
+#saveBtn:hover {
+  background: #2471a3;
+}
+
+#loadBtn {
+  background: #27ae60;
+  color: white;
+}
+#loadBtn:hover {
+  background: #1e8449;
+}
+
+#shareBtn {
+  background: #f39c12;
+  color: white;
+}
+#shareBtn:hover {
+  background: #d68910;
+}
+/* Share link input */
+#shareLink {
+  flex-grow: 1;
+  min-width: 200px;
+  padding: 10px;
+  border-radius: 25px;
+  border: 1px solid #ccc;
+  font-size: 14px;
+  cursor: pointer;
+  user-select: all;
+  color: #333;
+}
+
+/* Bottom controls container */
+.controls-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
   width: 100%;
-  height: 8px;
-  background: #444;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 4px;
+  background: white;
+  padding: 15px;
+  box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  z-index: 9999;
 }
 
-#progressInner {
-  width: 0%;
-  height: 100%;
-  background: #00c853;
-  transition: width .2s linear;
-}
-
-.muted {
-  color: #ddd;
-  font-size: 12px;
-  font-weight: bold;
-}
-
-input[type=text] {
+/* Progress bar wrapper */
+#progressBarWrapper {
   width: 80%;
+  max-width: 600px;
+  text-align: center;
+  display: none; /* Initially hidden */
+}
+
+/* Progress text */
+#progressText {
+  font-weight: 600;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+/* Progress outer bar */
+#progressOuter {
+  background: #ddd;
+  height: 12px;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+
+/* Progress inner bar */
+#progressInner {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, #04d119, #00ff2a);
+  transition: width 0.3s ease;
+}
+
+/* ETA text */
+#etaText {
+  color: #666;
+  font-size: 14px;
+}
+
+/* Start Navigation button */
+#startNavBtn {
+  background: linear-gradient(135deg, #007bff, #00c6ff);
+  color: white;
+  font-size: 18px;
+  padding: 15px 40px;
+  border-radius: 30px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.2); 
+  font-weight: 600;
+  transition: background 0.3s ease;
+  animation: pulse 1.5s infinite;
+}
+
+#startNavBtn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #0056b3, #0099cc);
+}
+
+#startNavBtn:disabled {
+  background: #a3c8ff;
+  cursor: not-allowed;
+  animation: none;  /* stop pulse animation */
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  #controls-top {
+    justify-content: center;
+  }
+
+  #controls-top button {
+    flex: 1 1 40%;
+  }
+}
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+  100% { transform: scale(1); }
+}
+@media (max-width: 480px) {
+  #startNavBtn {
+    width: 90%;
+    font-size: 16px;
+  }
+}
+
+
+.popup-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.5);
+  display: none;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+
+.popup {
+  background: white;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 12px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+  padding: 30px 25px;
+  text-align: center;
+  position: relative;
+  animation: slideIn 0.3s ease forwards;
+}
+
+.popup h2 {
+  margin-bottom: 20px;
+  color: #333;
+}
+
+.popup p {
+  color: #555;
+  font-size: 16px;
+  margin-bottom: 30px;
+}
+
+.btn-close-popup {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #aaa;
+  transition: color 0.2s ease;
+}
+.btn-close-popup:hover {
+  color: #007bff;
 }
