@@ -1,30 +1,62 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Marathon Walking Route — Author & Follower Modes</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Marathon Walking Route</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="controls">
+  <div id="controls-top">
+    
     <button id="clearBtn" onclick="clearRoute()">Clear Route</button>
     <button id="saveBtn" onclick="savePath()">Save Path</button>
     <button id="loadBtn" onclick="loadSavedPath()">Load Saved Path</button>
-    <button id="shareBtn" onclick="generateShareLink()">Generate Shareable Link</button>
-    <button id="startNavBtn" disabled onclick="startNavigation()">Start Navigation</button>
-    <input type="text" id="shareLink" readonly onclick="this.select()" placeholder="Shareable link will appear here">
+    <button id="shareBtn" onclick="generateShareLink()">Generate Link</button>
+    <input 
+  type="text" 
+  id="shareLink" 
+  readonly 
+  onclick="this.select()" 
+  placeholder="Shareable link will appear here"
+  style="width: 80%; margin-right: 10px; padding: 10px; border-radius: 25px; border: 1px solid #ccc; font-size: 14px;"
+>
+  </div>
+<!-- Route Alert Popup -->
+<div class="popup-overlay" id="routeAlertPopup" style="display: none;">
+  <div class="popup">
+    <button class="btn-close-popup" onclick="hideRouteAlert()" aria-label="Close popup">&times;</button>
+    <h2>Alert!</h2>
+    <p>You are not following the route.</p>
+    <button class="btn-open-popup" onclick="hideRouteAlert()">Got it</button>
+  </div>
+</div>
+
+
+
+  <div class="controls-bottom">
+  <div id="progressBarWrapper" style="display:none; width: 80%; max-width: 600px; margin-bottom: 10px; text-align: center;">
+    <div id="progressText" style="font-weight: 600; margin-bottom: 6px;">0% • 0 m left</div>
+    <div id="progressOuter" style="background:#ddd; height: 12px; border-radius: 10px; overflow: hidden; margin-bottom: 6px;">
+      <div id="progressInner" style="height: 100%; width: 0%; background: linear-gradient(90deg, #007bff, #00c6ff); transition: width 0.3s ease;"></div>
+    </div>
+    <div id="etaText" class="muted" style="color: #666; font-size: 14px;">ETA info here</div>
   </div>
 
-  <div id="progressBarWrapper" style="display:none">
+    <button id="startNavBtn" disabled onclick="startNavigation()">Start Navigation</button>
+</div>
+
+  <!-- <div id="progressBarWrapper" style="display:none">
     <div id="progressText">0% • 0 m left</div>
     <div id="progressOuter">
       <div id="progressInner"></div>
     </div>
     <div class="muted" id="etaText"></div>
-  </div>
+  </div> -->
 
   <div id="map"></div>
-  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDgUtO-QtZfRHq1mARfb3U-G_FNCM_ySN8&libraries=geometry&callback=initMap" async defer></script>
 
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDgUtO-QtZfRHq1mARfb3U-G_FNCM_ySN8&libraries=geometry&callback=initMap" async defer></script>
   <script src="script.js"></script>
 </body>
 </html>
